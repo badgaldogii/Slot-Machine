@@ -1,0 +1,341 @@
+.global _start
+_start:
+	MOV R0, #0 //Makes R0 0 for the first row for 7-segment display
+	MOV R1, #0 //Makes R1 0 for the second row for 7-segment display
+	MOV R2, #0 //Makes R2 0 for the third row for 7-segment display
+	LDR R4, =0xFF200020 //assign the 7-segment display to R4
+	LDR R5, =HEXTABLE //assign HEXTABLE to R5
+	LDR R9, =0xFF200000 //assign LEDs to R9
+
+
+	LDR R7, [R6, #0xC]  //Reads the edge capture
+	MOV R8, #0xF        
+	STR R8, [R6, #0xC]  //Clears the interrupt
+
+
+	LDR R10, =0xFFFEC600 //Setting up the private timer
+	LDR R11, =1 //Setting seconds
+	STR R11, [R10]//integrates time into timer
+	MOV R11,#0b011
+	STR R11, [R10, #8] //Control register
+	MOV R11, #0
+	MOV R12, #0
+
+BUTTON_STATUS:
+
+	LDR R6, = 0xFF200050 //assign push buttons to R6
+	LDR R7, [R6, #0xC]  //Reads edge capture
+	CMP R7,#0  //Checking for button press
+	//By performing an XOR operation between two operands, 
+	//the EORGT instruction determines if the first operand is greater than the second operand 
+	//and sets the result accordingly. 
+	EORGT R12, #1 //Swapping with XOR (If a button press is detected, it changes the value of R12)
+	STRGT R7,[R6, #0xC] //Resets the edge capture button
+	CMP R12, #1 //Comparing R12 with 1
+	BEQ SPINNING //Branch to SPINNING if R12 is 1
+	B BUTTON_STATUS// Branch back to BUTTON_STATUS
+
+ACTIVATE_LEDS:
+
+	LDR R6, = 0xFF200050 //Assign push buttons to R6
+	LDR R7, [R6, #0xC]  //Reads edge capture
+	CMP R7,#0  //Checking for button press
+	EORGT R12, #1 //Swapping with XOR(If a button press is detected, it changes the value of R12)
+	STRGT R7,[R6, #0xC] //Resets the edge capture button
+
+	MOV R10, #0b0 //No LED display 
+	CMP R1, R2 //If index 1 and 2 are equal
+	BEQ LED1 //Display LEDs in index 1 and 2
+	CMP R0, R2 //If index 0 and 2 are equal
+	BEQ LED2 //Display LEDs in index 0 and 2
+	CMP R1, R0 //If index 0 and 1 are equal
+	BEQ LED3 //Display LEDs in index 0 and 1
+	
+
+	CMP R12, #0 //Comparing R12 with 0
+	BEQ ACTIVATE_LEDS //Stays in the ACTIVATE_LEDS until R12 turns to 1
+	
+
+SPINNING: 
+ 
+    MOV R10, #0b0 // No LED display 
+    STR R10, [R9] // Store the LED display results into LEDs
+    LDR R11, [R10, #0xC] // Reading timer status
+    CMP R11, #0 // Comparing R11 with 0
+    BEQ SPINNING // Stays in the SPINNING until R11 turns to 1
+    STR R11, [R10, #0xC] // Reset timer flag 
+
+    //it makes each row increase according to the timer. From right to left, the values increase sequentially and range from 0 to 9.
+	ADD R0, R0, #1 // Adding 1 to first row 
+    CMP R0, #10 // Comparing R0 with 10
+    ADDEQ R1, R1, #1 // Adding 1 to second row 
+    MOVEQ R0, #0 // Makes R0 0
+
+    CMP R1, #10 // Comparing R1 with 10
+    ADDEQ R2, R2, #1 // Adding 1 to third row 
+    MOVEQ R1, #0 // Makes R1 0
+
+    CMP R2, #10 // Comparing R2 with 10
+    MOVEQ R2, #0 // Makes R2 0
+
+    LDRB R6, [R5,R0] // First row display
+    LDRB R7, [R5, R1] // Second row display
+    LDRB R8, [R5, R2] // Third row display
+
+    //from right to left the next seven segment goes to the display
+	ADD R10, R6, R7, LSL#8 // Adding first and second row together R10 and shifting 8 bits 
+    ADD R6, R10, R8, LSL#16 // Adding third row and R10 together in R6 and shifting 16 bits
+
+    STR R6, [R4] // Shows the numbers on the 7-segment display
+
+    LDR R6, = 0xFF200050 // push buttons
+    LDR R7, [R6, #0xC]  // Reads edge capture
+    CMP R7, #0  // Checking for button press
+    EORGT R12, #1 // Swapping with XOR (If a button press is detected, it changes the value of R12)
+    STRGT R7, [R6, #0xC] // Resets the edge capture button
+    CMP R12, #0 // Comparing R12 with 0
+    BEQ ACTIVATE_LEDS // Stays in the ACTIVATE_LEDS until R12 turns to 1
+    B SPINNING //Branch back to SPINNING
+
+
+LED1:
+
+    MOVEQ R10, #0b110  // Display LEDs in index 1 and 2
+	CMP R1, R0 //If index 0 and 1 are equal
+	BEQ LED4 
+	STR R10, [R9] //Store the LED display results into LEDs
+	LDR R11, =0xFF201000//assign JTAG UART to R11
+    LDR R6, =#'Y'
+    STR R6, [R11]           // Write 'Y' to JTAG UART data register
+
+    LDR R6, =#'o'
+    STR R6, [R11]           // Write 'o' to JTAG UART data register
+
+    LDR R6, =#'u'
+    STR R6, [R11]           // Write 'u' to JTAG UART data register
+
+    LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+
+    LDR R6, =#'W'
+    STR R6, [R11]           // Write 'W' to JTAG UART data register
+
+    LDR R6, =#'i'
+    STR R6, [R11]           // Write 'i' to JTAG UART data register
+
+    LDR R6, =#'n'
+    STR R6, [R11]           // Write 'n' to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'='
+    STR R6, [R11]           // Write equal sign to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'5'
+    STR R6, [R11]           // Write 5 to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'D'
+    STR R6, [R11]           // Write 'D' to JTAG UART data register
+	
+	LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+	
+	LDR R6, =#'P'
+    STR R6, [R11]           // Write 'P' to JTAG UART data register
+	
+	//DIP: it means point in our project. (DIP: Doğa and Ilgın Point)
+	
+	LDR R6, =#'\n'          // Write newline character to JTAG UART data register
+    STR R6, [R11]
+	
+    B BUTTON_STATUS
+
+LED2:
+
+    MOVEQ R10, #0b101// Display leds in index 0 and 2
+	CMP R1, R0 //If 0 and 1 are equal
+	BEQ LED4 
+	STR R10, [R9] //Store the led display results into leds
+	LDR R11, =0xFF201000//assign JTAG UART to R11
+    LDR R6, =#'Y'
+    STR R6, [R11]           // Write 'Y' to JTAG UART data register
+
+    LDR R6, =#'o'
+    STR R6, [R11]           // Write 'o' to JTAG UART data register
+
+    LDR R6, =#'u'
+    STR R6, [R11]           // Write 'u' to JTAG UART data register
+
+    LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+
+    LDR R6, =#'W'
+    STR R6, [R11]           // Write 'W' to JTAG UART data register
+
+    LDR R6, =#'i'
+    STR R6, [R11]           // Write 'i' to JTAG UART data register
+
+    LDR R6, =#'n'
+    STR R6, [R11]           // Write 'n' to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'='
+    STR R6, [R11]           // Write equal sign to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'5'
+    STR R6, [R11]           // Write 5 to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'D'
+    STR R6, [R11]           // Write 'D' to JTAG UART data register
+	
+	LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+	
+	LDR R6, =#'P'
+    STR R6, [R11]           // Write 'P' to JTAG UART data register
+	
+	//DIP: it means point in our project. (DIP: Doğa and Ilgın Point)
+	
+	LDR R6, =#'\n'          // Write newline character to JTAG UART data register
+    STR R6, [R11]
+	
+    B BUTTON_STATUS
+
+LED3:
+
+    MOVEQ R10, #0b11 // Display leds in index 0 and 1
+	CMP R0, R2 //If 0 and 2 are equal
+	BEQ LED4 
+	STR R10, [R9] //Store the led display results into leds
+	LDR R11, =0xFF201000//assign JTAG UART to R11
+    LDR R6, =#'Y'
+    STR R6, [R11]           // Write 'Y' to JTAG UART data register
+
+    LDR R6, =#'o'
+    STR R6, [R11]           // Write 'o' to JTAG UART data register
+
+    LDR R6, =#'u'
+    STR R6, [R11]           // Write 'u' to JTAG UART data register
+
+    LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+
+    LDR R6, =#'W'
+    STR R6, [R11]           // Write 'W' to JTAG UART data register
+
+    LDR R6, =#'i'
+    STR R6, [R11]           // Write 'i' to JTAG UART data register
+
+    LDR R6, =#'n'
+    STR R6, [R11]           // Write 'n' to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'='
+    STR R6, [R11]           // Write equal sign to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'5'
+    STR R6, [R11]           // Write 5 to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'D'
+    STR R6, [R11]           // Write 'D' to JTAG UART data register
+	
+	LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+	
+	LDR R6, =#'P'
+    STR R6, [R11]           // Write 'P' to JTAG UART data register
+	
+	//DIP: it means point in our project. (DIP: Doğa and Ilgın Point)
+	
+	LDR R6, =#'\n'          // Write newline character to JTAG UART data register
+    STR R6, [R11]
+	
+    B BUTTON_STATUS
+
+LED4:
+
+    MOVEQ R10, #0b111 // Turn on all three LEDs
+	STR R10, [R9] //Store the led display results into leds
+	LDR R11, =0xFF201000 //assign JTAG UART to R11
+    LDR R6, =#'B'
+    STR R6, [R11]           // Write 'B' to JTAG UART data register
+
+    LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+
+    LDR R6, =#'G'
+    STR R6, [R11]           // Write 'G' to JTAG UART data register
+
+    LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+
+    LDR R6, =#'W'
+    STR R6, [R11]           // Write 'W' to JTAG UART data register
+
+    LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+
+    LDR R6, =#'N'
+    STR R6, [R11]           // Write 'N' to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'='
+    STR R6, [R11]           // Write equal sign to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'5'
+    STR R6, [R11]           // Write 5 to JTAG UART data register
+	
+	LDR R6, =#'0'
+    STR R6, [R11]           // Write 0 to JTAG UART data register
+	
+	LDR R6, =#' '
+    STR R6, [R11]           // Write space to JTAG UART data register
+	
+	LDR R6, =#'D'
+    STR R6, [R11]           // Write 'D' to JTAG UART data register
+	
+	LDR R6, =#'I'
+    STR R6, [R11]           // Write 'I' to JTAG UART data register
+	
+	LDR R6, =#'P'
+    STR R6, [R11]           // Write 'P' to JTAG UART data register
+	
+	//DIP: it means point in our project. (DIP: Doğa and Ilgın Point)
+	
+	LDR R6, =#'\n'          // Write newline character to JTAG UART data register
+    STR R6, [R11]
+	
+    B BUTTON_STATUS
+	
+
+HEXTABLE: .byte 0x3F, 0x06, 0x5B, 0x4F, 0x66, 0x6D, 0x7C, 0x07, 0x7F, 0x6F
+.end
+
