@@ -1,1 +1,1 @@
-# Slot-Machine
+Aseembly language that run in the CPUlator
